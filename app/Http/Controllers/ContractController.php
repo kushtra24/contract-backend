@@ -79,11 +79,40 @@ class ContractController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\Http\Response
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
+
+//        $user = Auth::user();
+
+//        $page = Input::get('page', null); // only needed to check if pagination is wanted
+//        $limit = Input::get('limit', null);
+        $search = Input::get('search');
+        $contractType = Input::get('type');
+        $customerId = Input::get('customerId');
+        $personId = Input::get('personId');
+        $orderByArr = Input::get('order-by', 'title'); // default order
+        $orderType = Input::get('order-type', 'asc'); // order type
+        $this->orderByArr = Utils::stringToArray($orderByArr); // to array
+
+        $contractQuery = Contract::select('*'); // select all from contract
+
+        $this->checkSearch($contractQuery, $search); // check for search
+        $this->checkContractType($contractQuery, $contractType); // check for search
+        $this->checkCustomerFilter($contractQuery, $customerId); // check for search
+        $this->checkPersonFilter($contractQuery, $personId); // check for search
+        $contracts = $this->executeQuery($contractQuery, $this->orderByArr, $orderType); // execute the query
+        $this->getDataForIds($contracts); // get the data for ids like person, projects and linked contract
+
+        // if contracts date is null return empty array
+        if (!isset($contracts)) {
+            $contracts = []; // set contract to an empty array
+        }
+
+        // return a json response of contract data
+        return response()->json($contracts, 200);
     }
 
     /**

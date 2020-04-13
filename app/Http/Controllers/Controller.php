@@ -101,4 +101,53 @@ class Controller extends BaseController
         }, ARRAY_FILTER_USE_BOTH);
     }
 
+    /**
+     * Execute given query by considering all given parameters
+     * @param null $query
+     * @param bool $page
+     * @param null $limit
+     * @param null $orderByArr
+     * @param string $orderType
+     * @return mixed
+     */
+    protected function executeQuery(&$query = null, $page = null, $limit = null, $orderByArr = null, $orderType = 'asc') {
+        $result = null;
+        if(!isset($query)) { return $result; }
+
+//    Log::info('HERE: ' . var_export($query, true));
+
+        // order by array
+        if(is_countable($orderByArr) && count($orderByArr) > 0) {
+            // check sort ranking
+            if(!isset($orderType) || $orderType !== 'desc' && $orderType !== 'asc') {
+                $orderType = 'asc';
+            }
+
+            // create order by
+            for($i = 0, $max = count($orderByArr); $i < $max; $i++) {
+                $attr = $orderByArr[$i];
+                if(!isset($attr)) { continue; }
+
+                $query = $query->orderBy($attr, $orderType);
+            }
+        }
+
+        // check for pagination
+        if(isset($page) && $page > 0) {
+            // check limit
+            if(!isset($limit) || $limit <= 0) { $limit = 10; }
+            // execute
+            // $result = $query->paginate($limit); // laravel doing pagination (slow)
+            $result = $this->paginate($query, $page, $limit); //
+
+        } else {
+            // check for limit
+            if(isset($limit) && $limit > 0) {
+                $query = $query->limit($limit);
+            }
+            $result = $query->get();
+        }
+
+        return $result;
+    }
 }
