@@ -4,7 +4,7 @@ namespace App;
 
 use Illuminate\Database\Eloquent\Model;
 
-class contract extends Model
+class Contract extends Model
 {
     /**
      * DB connection for model
@@ -22,19 +22,19 @@ class contract extends Model
      *
      * @var array
      */
-    protected $fillable = ['type_id', 'title', 'temporary', 'end_date', 'original_at_team_assistant', 'rating', 'rating_bg', 'submitting_person_id', 'customer_number', 'signed_date', 'customer_id', 'supplier_id'];
+    protected $fillable = ['id', 'type_id', 'title', 'temporary', 'end_date', 'is_original', 'signed_date', 'customer_id', 'supplier_id'];
 
     /**
      * The attributes that should be hidden for arrays.
      *
      * @var array
      */
-    protected $hidden = ['type_id','end_date', 'signed_date', 'original_at_team_assistant', 'submitting_person_id', 'project_id', 'person_id', 'created_at', 'updated_at', 'supplier_id'];
+    protected $hidden = ['type_id','end_date', 'signed_date', 'is_original', 'project_id', 'person_id', 'created_at', 'updated_at'];
 
     /**
      * @var array
      */
-    protected $appends = ['typeId', 'endDate', 'originalAtTeamAssistant', 'ratingBg', 'customerNumber', 'signedDate', 'segmentId', 'submittingPersonId','customerId', 'supplierId'];
+    protected $appends = ['typeId', 'endDate', 'isOriginal', 'customerNumber', 'signedDate', 'segmentId', 'customerId'];
 
     /**
      * Define relationship
@@ -56,13 +56,13 @@ class contract extends Model
      */
     public function file()
     {
-        return $this->hasOne('App\File');
+        return $this->hasOne('App\FileDoc');
     }
 
     /**
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
-    public function persons()
+    public function people()
     {
         $LocalDb = env('DB_DATABASE');
 
@@ -140,25 +140,12 @@ class contract extends Model
      *
      * @return mixed
      */
-    public function getOriginalAtTeamAssistantAttribute()
+    public function getIsOriginalAttribute()
     {
         if (!isset($this->attributes['original_at_team_assistant'])) {
             return null;
         }
         return $this->attributes['original_at_team_assistant'];
-    }
-
-    /**
-     * Define snake case as camel case
-     *
-     * @return mixed
-     */
-    public function getRatingBgAttribute()
-    {
-        if (!isset($this->attributes['rating_bg'])) {
-            return null;
-        }
-        return $this->attributes['rating_bg'];
     }
 
     /**
@@ -200,18 +187,6 @@ class contract extends Model
         return $this->attributes['segment_id'];
     }
 
-    /**
-     * Define snake case as camel case
-     *
-     * @return mixed
-     */
-    public function getSubmittingPersonIdAttribute()
-    {
-        if (!isset($this->attributes['submitting_person_id'])) {
-            return null;
-        }
-        return $this->attributes['submitting_person_id'];
-    }
 
     /**
      * Define snake case as camel case

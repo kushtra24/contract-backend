@@ -114,8 +114,6 @@ class Controller extends BaseController
         $result = null;
         if(!isset($query)) { return $result; }
 
-//    Log::info('HERE: ' . var_export($query, true));
-
         // order by array
         if(is_countable($orderByArr) && count($orderByArr) > 0) {
             // check sort ranking
@@ -127,7 +125,6 @@ class Controller extends BaseController
             for($i = 0, $max = count($orderByArr); $i < $max; $i++) {
                 $attr = $orderByArr[$i];
                 if(!isset($attr)) { continue; }
-
                 $query = $query->orderBy($attr, $orderType);
             }
         }
@@ -138,7 +135,7 @@ class Controller extends BaseController
             if(!isset($limit) || $limit <= 0) { $limit = 10; }
             // execute
             // $result = $query->paginate($limit); // laravel doing pagination (slow)
-            $result = $this->paginate($query, $page, $limit); //
+//            $result = $this->paginate($query, $page, $limit); //
 
         } else {
             // check for limit
@@ -149,5 +146,31 @@ class Controller extends BaseController
         }
 
         return $result;
+    }
+
+    /**
+     * Parse given string to array by (optional) delimiter
+     *
+     * @param $string
+     * @param string $delimiter
+     * @param bool $removeEmptyEntries
+     * @param bool $trimEntries
+     * @return array|null
+     */
+    public static function stringToArray($string, $delimiter = ',', $removeEmptyEntries = true, $trimEntries = true) {
+        if(!is_null($string) && gettype($string) === 'string') {
+            // get array
+            $array = explode($delimiter, $string);
+            // trim entries
+            if($trimEntries) {
+                $array = array_map('trim', $array);
+            }
+            // remove empty entries
+            if($removeEmptyEntries) {
+                $array = array_filter($array, 'strlen');
+            }
+            return $array;
+        }
+        return null;
     }
 }

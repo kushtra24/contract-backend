@@ -17,12 +17,9 @@ class CreateContractsTable extends Migration
             $table->increments('id');
             $table->integer('type_id');
             $table->string('title');
-            $table->boolean('temporary');
+            $table->boolean('temporary')->nullable();
             $table->date('end_date');
-            $table->boolean('original_at_team_assistant');
-            $table->tinyInteger('rating')->nullable();
-            $table->integer('rating_bg')->nullable();
-            $table->integer('submitting_person_id');
+            $table->boolean('is_original');
             $table->date('signed_date');
             $table->integer('customer_id')->nullable();
             $table->timestamps();

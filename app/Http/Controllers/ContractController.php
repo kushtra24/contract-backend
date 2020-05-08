@@ -2,9 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\contract;
+use App\Contract;
+use App\Customer;
 use App\Helpers\Utils;
+use App\Person;
+use App\Type;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\Console\Input\Input;
 
 class ContractController extends Controller
 {
@@ -14,10 +19,7 @@ class ContractController extends Controller
         'title',
         'temporary',
         'endDate',
-        'originalAtTeamAssistant',
-        'rating',
-        'ratingBg',
-        'submittingPersonId',
+        'isOriginal',
         'customerNumber',
         'signedDate',
         'customerId',
@@ -35,9 +37,7 @@ class ContractController extends Controller
     private $migrateProperties = [
         'typeId' => 'type_id',
         'endDate' => 'end_date',
-        'originalAtTeamAssistant' => 'original_at_team_assistant',
-        'ratingBg' => 'rating_bg',
-        'submittingPersonId' => 'submitting_person_id',
+        'isOriginal' => 'is_original',
         'customerNumber' => 'customer_number',
         'signedDate' => 'signed_date',
         'customerId' => 'customer_id',
@@ -87,33 +87,98 @@ class ContractController extends Controller
 
 //        $user = Auth::user();
 
-//        $page = Input::get('page', null); // only needed to check if pagination is wanted
-//        $limit = Input::get('limit', null);
-        $search = Input::get('search');
-        $contractType = Input::get('type');
-        $customerId = Input::get('customerId');
-        $personId = Input::get('personId');
-        $orderByArr = Input::get('order-by', 'title'); // default order
-        $orderType = Input::get('order-type', 'asc'); // order type
-        $this->orderByArr = Utils::stringToArray($orderByArr); // to array
+        $search = $request->input('search');
+//        $contractType = $request->input('type');
+//        $customerId = $request->input('customerId');
+//        $personId = $request->input('personId');
+        $orderByArr = $request->input('order-by', 'title'); // default order
+//        $orderType = $request->input('order-type', 'asc'); // order type
+        $this->orderByArr = $this->stringToArray($orderByArr); // to array
 
         $contractQuery = Contract::select('*'); // select all from contract
 
         $this->checkSearch($contractQuery, $search); // check for search
-        $this->checkContractType($contractQuery, $contractType); // check for search
-        $this->checkCustomerFilter($contractQuery, $customerId); // check for search
-        $this->checkPersonFilter($contractQuery, $personId); // check for search
-        $contracts = $this->executeQuery($contractQuery, $this->orderByArr, $orderType); // execute the query
-        $this->getDataForIds($contracts); // get the data for ids like person, projects and linked contract
+//        $this->checkContractType($contractQuery, $contractType); // check for search
+//        $this->checkCustomerFilter($contractQuery, $customerId); // check for search
+//        $this->checkPersonFilter($contractQuery, $personId); // check for search
+//        $contracts = $this->executeQuery($contractQuery, $this->orderByArr, $orderType); // execute the query
+        $contracts = $this->executeQuery($contractQuery, null, null, $orderByArr);
+//        $this->getDataForIds($contracts); // get the data for ids like person, projects and linked contract
 
         // if contracts date is null return empty array
-        if (!isset($contracts)) {
-            $contracts = []; // set contract to an empty array
-        }
+        if (is_null($contracts)) { $contracts = []; }// set contract to an empty array
 
         // return a json response of contract data
         return response()->json($contracts, 200);
     }
+
+    /**
+     * find the searched contract
+     * @param $query
+     * @param $search
+     * @return mixed
+     */
+    private function checkSearch(&$query, $search) {
+        if (!isset($query)) {
+            return $query;
+        }
+
+        if (!is_null($search)) {
+            $localDb = env('DB_DATABASE');
+            $bigPictureTable = env('DB_DATABASE_BP_PUBLIC');
+            $searchTerms = $this->stringToArray($search, ' ');
+            $query->leftJoin($bigPictureTable . '.customer', $localDb . '.contracts.customer_id', '=', $bigPictureTable .'.customer.id');
+            $query = $query->where(function ($query) use ($searchTerms) {
+                for ($i = 0, $max = count($searchTerms); $i < $max; $i++) {
+                    $term = str_replace('_', '\_', mb_strtolower('%' . $searchTerms[$i] . '%'));
+                    $query->whereRaw("(Lower(contracts.title) LIKE ?)", [$term, $term])
+                        ->orWhereRaw("(Lower(customer.name) LIKE ?)", [$term, $term]);
+                }
+            });
+            $this->orderByArr = 'end_date';
+        }
+    }
+
+    /**
+     * check contract type
+     * @param $query
+     * @param $type
+     * @return mixed
+     */
+    private function checkContractType(&$query, $type) {
+        if (!isset($query)) { return $query; }
+
+        if (!is_null($type)) {
+            $query = $query->where( 'type_id', $type);
+        }
+    }
+
+    /**
+     * @param $contractQuery
+     * @param $customerId
+     * @return mixed
+     */
+    private function checkCustomerFilter(&$contractQuery, $customerId) {
+        if (!isset($contractQuery)) { return $contractQuery; }
+
+        if (!is_null($customerId)) {
+            $contractQuery = $contractQuery->where('customer_id', $customerId);
+        }
+    }
+
+    /**
+     * @param $contractQuery
+     * @param $personId
+     * @return mixed
+     */
+    private function checkPersonFilter(&$contractQuery, $personId) {
+        if (!isset($contractQuery)) { return $contractQuery; }
+
+        if (!is_null($personId)) {
+            $contractQuery = $contractQuery->where('submitting_person_id', $personId);
+        }
+    }
+
 
     /**
      * Store a newly created resource in storage.
@@ -130,7 +195,6 @@ class ContractController extends Controller
 //        if (!isset($user) || !$user->ability([], ["write-contract"])) {
 //            throw new \InvalidArgumentException('You do not have permission to post', 403);
 //        }
-
         /**
          * incoming properties from the fronted request
          */
@@ -139,29 +203,113 @@ class ContractController extends Controller
          * convert from camelcase to snake case
          */
         $data = $this->migrateProperty($data, $this->migrateProperties);
-
         // validate the data
-        $this->validateData($data, $this->rulesCreateContract);
-
+//        $this->validateData($data, $this->rulesCreateContract);
+//
         // clean the data array
         $data = $this->cleanArray($data);
-
         // get he contract
         $contract = new Contract($data);
         // save
         $contract->save();
+
+        $this->storeOtherDetails($data, $contract);
 
         // return a json response
         return response()->json(['id' => $contract->id], 201);
     }
 
     /**
+     * attach the request data to the corresponding db table
+     * @param $data
+     * @param $contract
+     */
+    public function storeOtherDetails($data, $contract) {
+
+        // attach project Ids to contract_project
+        if (isset($data['project_id'])) {
+            foreach ($data['project_id'] as $projectId) {
+                $contract->projects()->attach($projectId);
+            }
+        }
+
+        // attach additional people ids to contract_person
+        if (isset($data['person_id'])) {
+            foreach ($data['person_id'] as $people) {
+                $contract->people()->attach($people);
+            }
+        }
+
+        if (isset($data['linked_contracts_id'])) {
+            foreach ($data['linked_contracts_id'] as $linked) {
+                $contract->contracts()->attach($linked);
+            }
+        }
+
+
+    }
+
+    /**
+     * get contract information from other models depending on the id
+     * @param $contracts
+     */
+    public function getDataForIds($contracts) {
+
+        // get the get data from Person depending on the id on the contract
+        if (isset($contracts) && is_countable($contracts)) {
+            foreach ($contracts as &$contract) {
+
+                if (!isset($contract)) { continue; }
+
+                // get data
+                $segmentLeader = Person::find($contract['segment_id']);
+                $customerName = Customer::find($contract['customer_id']);
+                $whoSubmitted = Person::find($contract['submitting_person_id']);
+                $contractType = Type::find($contract['type_id']);
+
+
+                // check if has data and get the segment leader name and firstname
+                if (isset($segmentLeader)) {
+                    $contract['segmentLeader'] = ['lastName' => $segmentLeader->lastName, 'firstName' => $segmentLeader->firstName];
+                }
+
+                // check if has data and get the customer name
+                if (isset($customerName)) {
+                    $contract['customerName'] = $customerName->name;
+                }
+
+                // check if has data, and get the name of who submitted the contract
+                if (isset($whoSubmitted)) {
+                    $contract['whoSubmitted'] = ['lastName' => $whoSubmitted->lastName, 'firstName' => $whoSubmitted->firstName];
+                }
+
+                // check is has data, and get contract type name
+                if (isset($contractType)) {
+                    $contract['contractType'] = $contractType->name;
+                }
+
+                // check if end date is set and convert to a different format
+                if (is($contract->end_date)) {
+                    $contract['endDateConverted'] = date('d/m/Y', strtotime($contract->end_date));
+                }
+
+                // check if end date is set and convert to a different format
+                if (is($contract->signed_date)) {
+                    $contract['signedDateConverted'] = date('d/m/Y', strtotime($contract->signed_date));
+                }
+
+            }
+        }
+    }
+
+
+    /**
      * Display the specified resource.
      *
-     * @param  \App\contract  $contract
+     * @param  \App\Contract  $contract
      * @return \Illuminate\Http\Response
      */
-    public function show(contract $contract)
+    public function show(Contract $contract)
     {
         //
     }
@@ -171,10 +319,10 @@ class ContractController extends Controller
      * Update the specified resource in storage.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @param  \App\contract  $contract
+     * @param  \App\Contract  $contract
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, contract $contract)
+    public function update(Request $request, Contract $contract)
     {
         //
     }
@@ -182,10 +330,10 @@ class ContractController extends Controller
     /**
      * Remove the specified resource from storage.
      *
-     * @param  \App\contract  $contract
+     * @param  \App\Contract  $contract
      * @return \Illuminate\Http\Response
      */
-    public function destroy(contract $contract)
+    public function destroy(Contract $contract)
     {
         //
     }
