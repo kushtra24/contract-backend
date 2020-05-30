@@ -6,7 +6,9 @@ use App\Contract;
 use App\Customer;
 use App\Helpers\Utils;
 use App\Person;
+use App\Project;
 use App\Type;
+use http\Exception\InvalidArgumentException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Console\Input\Input;
@@ -29,9 +31,6 @@ class ContractController extends Controller
         'projectId',
         'personId',
         'linkedContractsId',
-        'deletedPersonId',
-        'deletedProjectId',
-        'deletedLinkedContractsId',
     ];
 
     private $migrateProperties = [
@@ -45,9 +44,6 @@ class ContractController extends Controller
         'projectId' => 'project_id',
         'personId' => 'person_id',
         'linkedContractsId' => 'linked_contracts_id',
-        'deletedPersonId' => 'deleted_person_id',
-        'deletedProjectId' => 'deleted_project_id',
-        'deletedLinkedContractsId' => 'deleted_linked_contracts_id',
     ];
 
     //validate
@@ -82,28 +78,18 @@ class ContractController extends Controller
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function index(Request $request)
-    {
+    public function index(Request $request) {
 
 //        $user = Auth::user();
 
         $search = $request->input('search');
-//        $contractType = $request->input('type');
-//        $customerId = $request->input('customerId');
-//        $personId = $request->input('personId');
-        $orderByArr = $request->input('order-by', 'title'); // default order
-//        $orderType = $request->input('order-type', 'asc'); // order type
-        $this->orderByArr = $this->stringToArray($orderByArr); // to array
+        $orderByArr = $request->input('order-by', 'id'); // default order
+        $orderType = $request->input('order-type', 'desc'); // order type
 
         $contractQuery = Contract::select('*'); // select all from contract
 
         $this->checkSearch($contractQuery, $search); // check for search
-//        $this->checkContractType($contractQuery, $contractType); // check for search
-//        $this->checkCustomerFilter($contractQuery, $customerId); // check for search
-//        $this->checkPersonFilter($contractQuery, $personId); // check for search
-//        $contracts = $this->executeQuery($contractQuery, $this->orderByArr, $orderType); // execute the query
-        $contracts = $this->executeQuery($contractQuery, null, null, $orderByArr);
-//        $this->getDataForIds($contracts); // get the data for ids like person, projects and linked contract
+        $contracts = $this->executeQuery($contractQuery, $orderByArr, $orderType);
 
         // if contracts date is null return empty array
         if (is_null($contracts)) { $contracts = []; }// set contract to an empty array
@@ -195,6 +181,7 @@ class ContractController extends Controller
 //        if (!isset($user) || !$user->ability([], ["write-contract"])) {
 //            throw new \InvalidArgumentException('You do not have permission to post', 403);
 //        }
+
         /**
          * incoming properties from the fronted request
          */
@@ -204,11 +191,11 @@ class ContractController extends Controller
          */
         $data = $this->migrateProperty($data, $this->migrateProperties);
         // validate the data
-//        $this->validateData($data, $this->rulesCreateContract);
-//
+        $this->validateData($data, $this->rulesCreateContract);
+
         // clean the data array
         $data = $this->cleanArray($data);
-        // get he contract
+        // get the contract
         $contract = new Contract($data);
         // save
         $contract->save();
@@ -219,6 +206,28 @@ class ContractController extends Controller
         return response()->json(['id' => $contract->id], 201);
     }
 
+
+    /**
+     * delete many to many relations
+     * @param $data request
+     * @param $contract contract
+     */
+    public function deleteOtherDetails($data, $contract) {
+        // detach all projects
+        if (isset($data['project_id'])) {
+            $contract->projects()->detach();
+        }
+        // detach all people
+        if (isset($data['person_id'])) {
+            $contract->people()->detach();
+        }
+        // detach all contracts
+        if (isset($data['linked_contracts_id'])) {
+            $contract->contracts()->detach();
+        }
+    }
+
+
     /**
      * attach the request data to the corresponding db table
      * @param $data
@@ -228,8 +237,8 @@ class ContractController extends Controller
 
         // attach project Ids to contract_project
         if (isset($data['project_id'])) {
-            foreach ($data['project_id'] as $projectId) {
-                $contract->projects()->attach($projectId);
+            foreach ($data['project_id'] as $project) {
+                $contract->projects()->attach($project);
             }
         }
 
@@ -245,8 +254,6 @@ class ContractController extends Controller
                 $contract->contracts()->attach($linked);
             }
         }
-
-
     }
 
     /**
@@ -306,25 +313,100 @@ class ContractController extends Controller
     /**
      * Display the specified resource.
      *
-     * @param  \App\Contract  $contract
-     * @return \Illuminate\Http\Response
+     * @param $id contract id
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function show(Contract $contract)
+    public function show($id)
     {
-        //
+        // throw error if an ID is not provided
+        if (!is_numeric($id)) {
+            throw new \InvalidArgumentException('The Contract ID is missing, please have a look on it',400);
+        }
+
+        // find the contract or fail
+        $contractQuery = Contract::findOrFail($id);
+        // find the customer
+        $customerQuery = Customer::find($contractQuery['customer_id']);
+        // find the type from the contract type_id
+        $contractType = Type::find($contractQuery['type_id']);
+
+
+        // add linked contracts to the response
+        if (isset($contractQuery->contracts)) {
+            $contractQuery['linkedContracts'] = $contractQuery->contracts;
+        }
+
+        // add projects to the response
+        if (isset($contractQuery->projects)) {
+            $contractQuery['projects'] = $contractQuery->projects;
+        }
+
+        // add additional people to the response
+        if (isset($contractQuery->people)) {
+            $contractQuery['people'] = $contractQuery->people;
+        }
+
+        // get customer name and add to the response
+        if (isset($customerQuery)) {
+            $contractQuery['customerName'] = $customerQuery->name;
+        }
+
+        // get contract type and add to response
+        if (isset($contractType)) {
+            $contractQuery['contractType'] = $contractType->name;
+        }
+
+        // get converted date and add to response
+        if (isset($contractQuery->end_date)) {
+            $contractQuery['endDateConvert'] = date('d.m.yy', strtotime($contractQuery->end_date));
+        }
+
+        // get signed date and add to response
+        if (isset($contractQuery->signed_date)) {
+            $contractQuery['signedDareConverted'] = date('d.m.yy', strtotime($contractQuery->signed_date));
+        }
+
+        return response()->json($contractQuery, 200);
     }
 
 
     /**
      * Update the specified resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Contract  $contract
-     * @return \Illuminate\Http\Response
+     * @param \Illuminate\Http\Request $request
+     * @param Contract $id
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function update(Request $request, Contract $contract)
+    public function update(Request $request, $id)
     {
-        //
+        if (!is_numeric($id)) {
+            throw new \InvalidArgumentException('The Contract ID is missing, please have a look on it',400);
+        }
+
+        // find or fail contract
+        $contractQuery = Contract::findOrFail($id);
+
+        // include properties
+        $data = $this->getOnly($request->all(), $this->basicProperties);
+
+        // migrate properties
+        $data = $this->migrateProperty($data, $this->migrateProperties);
+
+        // validate
+        $this->validateData($data, $this->rulesCreateContract);
+
+        // clean data array
+        $data = $this->cleanArray($data);
+
+        // delete relational data with contract
+        $this->deleteOtherDetails($data, $contractQuery);
+        // store relational data with contract
+        $this->storeOtherDetails($data, $contractQuery);
+
+        // save
+        $contractQuery->update($data);
+
+        return response()->json(['id' => $contractQuery->id], 201);
     }
 
     /**
@@ -335,7 +417,7 @@ class ContractController extends Controller
      */
     public function destroy(Contract $contract)
     {
-        //
+        // cannot delete contract
     }
 
     /**
@@ -364,4 +446,5 @@ class ContractController extends Controller
 
         return $result;
     }
+
 }

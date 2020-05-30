@@ -6,6 +6,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -110,12 +111,14 @@ class Controller extends BaseController
      * @param string $orderType
      * @return mixed
      */
-    protected function executeQuery(&$query = null, $page = null, $limit = null, $orderByArr = null, $orderType = 'asc') {
+    protected function executeQuery(&$query = null, $orderByArr = null, $orderType = 'asc') {
         $result = null;
-        if(!isset($query)) { return $result; }
+
+        if(!isset($query)) { return null; }
 
         // order by array
         if(is_countable($orderByArr) && count($orderByArr) > 0) {
+
             // check sort ranking
             if(!isset($orderType) || $orderType !== 'desc' && $orderType !== 'asc') {
                 $orderType = 'asc';
@@ -127,24 +130,10 @@ class Controller extends BaseController
                 if(!isset($attr)) { continue; }
                 $query = $query->orderBy($attr, $orderType);
             }
+
         }
 
-        // check for pagination
-        if(isset($page) && $page > 0) {
-            // check limit
-            if(!isset($limit) || $limit <= 0) { $limit = 10; }
-            // execute
-            // $result = $query->paginate($limit); // laravel doing pagination (slow)
-//            $result = $this->paginate($query, $page, $limit); //
-
-        } else {
-            // check for limit
-            if(isset($limit) && $limit > 0) {
-                $query = $query->limit($limit);
-            }
-            $result = $query->get();
-        }
-
+        $result = $query->get();
         return $result;
     }
 

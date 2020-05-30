@@ -18,9 +18,7 @@ class CreateFileDocsTable extends Migration
             $table->integer('contract_id');
             $table->text('filename');
             $table->string('mime')->nullable()->default('');
-            $table->string('display_filename')->nullable();
             $table->integer('size')->unsigned();
-            $table->tinyInteger('deleted')->unsigned()->default(0);
             $table->timestamps();
         });
     }

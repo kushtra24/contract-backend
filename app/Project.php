@@ -25,7 +25,7 @@ class Project extends Model
      *
      * @var array
      */
-    protected $hidden = [ 'procalc_id', 'segment_lead', 'project_lead', 'deputy_project_lead', 'created_at', 'updated_at' ];
+    protected $hidden = [];
 
     /**
      * The attributes that should be appended when json transformation is done (trick to achieve camelCase for snakeCases).
@@ -33,7 +33,7 @@ class Project extends Model
      *
      * @var array
      */
-    protected $appends = [ 'procalcId', 'segmentLead', 'projectLead', 'deputyProjectLead' ];
+    protected $appends = [];
 
 
     public function Customer() {
@@ -82,49 +82,5 @@ class Project extends Model
     public function contract() {
         $LocalDb = env('DB_DATABASE');
         return $this->belongsToMany('App\Contract', $LocalDb.'.contract_project');
-    }
-
-
-
-    // ---------------------------- property accessors
-
-    /**
-     * Define snake case as camel case
-     *
-     * @return mixed
-     */
-    public function getProcalcIdAttribute() {
-        if(!isset($this->attributes['procalc_id'])) { return null; }
-        return $this->attributes['procalc_id'];
-    }
-
-    /**
-     * Define snake case as camel case
-     *
-     * @return mixed
-     */
-    public function getSegmentLeadAttribute() {
-        if(!isset($this->attributes['segment_lead'])) { return null; }
-        return $this->attributes['segment_lead'];
-    }
-
-    /**
-     * Define snake case as camel case
-     *
-     * @return mixed
-     */
-    public function getProjectLeadAttribute() {
-        if(!isset($this->attributes['project_lead'])) { return null; }
-        return $this->attributes['project_lead'];
-    }
-
-    /**
-     * Define snake case as camel case
-     *
-     * @return mixed
-     */
-    public function getDeputyProjectLeadAttribute() {
-        if(!isset($this->attributes['deputy_project_lead'])) { return null; }
-        return $this->attributes['deputy_project_lead'];
     }
 }

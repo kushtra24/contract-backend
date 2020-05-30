@@ -4,6 +4,9 @@ namespace App;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @method static findOrFail(int|string $id)
+ */
 class Contract extends Model
 {
     /**
@@ -22,7 +25,7 @@ class Contract extends Model
      *
      * @var array
      */
-    protected $fillable = ['id', 'type_id', 'title', 'temporary', 'end_date', 'is_original', 'signed_date', 'customer_id', 'supplier_id'];
+    protected $fillable = ['id', 'type_id', 'title', 'temporary', 'end_date', 'is_original', 'signed_date', 'customer_id', 'customer_number'];
 
     /**
      * The attributes that should be hidden for arrays.
@@ -34,7 +37,7 @@ class Contract extends Model
     /**
      * @var array
      */
-    protected $appends = ['typeId', 'endDate', 'isOriginal', 'customerNumber', 'signedDate', 'segmentId', 'customerId'];
+    protected $appends = ['typeId', 'endDate', 'isOriginal', 'customerNumber', 'signedDate', 'customerId', 'customerNumber'];
 
     /**
      * Define relationship
@@ -99,14 +102,6 @@ class Contract extends Model
         return $this->hasOne('App\customer');
     }
 
-    /**
-     * has one supplier
-     * @return \Illuminate\Database\Eloquent\Relations\HasOne
-     */
-    public function supplier() {
-        return $this->hasOne('App\supplier');
-    }
-
 //  _____________________________________ property accessors
 
     /**
@@ -142,10 +137,10 @@ class Contract extends Model
      */
     public function getIsOriginalAttribute()
     {
-        if (!isset($this->attributes['original_at_team_assistant'])) {
+        if (!isset($this->attributes['is_original'])) {
             return null;
         }
-        return $this->attributes['original_at_team_assistant'];
+        return $this->attributes['is_original'];
     }
 
     /**
@@ -172,19 +167,6 @@ class Contract extends Model
             return null;
         }
         return $this->attributes['signed_date'];
-    }
-
-    /**
-     * Define snake case as camel case
-     *
-     * @return mixed
-     */
-    public function getSegmentIdAttribute()
-    {
-        if (!isset($this->attributes['segment_id'])) {
-            return null;
-        }
-        return $this->attributes['segment_id'];
     }
 
 

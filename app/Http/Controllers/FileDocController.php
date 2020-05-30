@@ -4,13 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Contract;
 use App\fileDoc;
-use Faker\Provider\File;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class FileDocController extends Controller
 {
+
+    private $storagePath;
+
     /**
      * Display a listing of the resource.
      *
@@ -52,7 +53,7 @@ class FileDocController extends Controller
         // file data
         $data['size'] = $file->getSize();
         $data['filename'] = $filename;
-        $data['name'] = $file->getMimeType();
+        $data['mime'] = $file->getMimeType();
 
 
         // validate
@@ -86,45 +87,43 @@ class FileDocController extends Controller
     /**
      * Display the specified resource.
      *
-     * @param  \App\fileDoc  $fileDoc
-     * @return \Illuminate\Http\Response
+     * @param $id
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function show(fileDoc $fileDoc)
+    public function show($id)
     {
+        if (!is_numeric($id)) {
+            throw new \InvalidArgumentException('no contract ID for this file', 400);
+        }
 
+        $file = Contract::findOrFail($id)->file;
+
+        return response()->json($file, 200);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  \App\fileDoc  $fileDoc
-     * @return \Illuminate\Http\Response
-     */
-    public function edit(fileDoc $fileDoc)
-    {
-        //
-    }
 
     /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\fileDoc  $fileDoc
-     * @return \Illuminate\Http\Response
+     * download the file
+     * @param $id
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
      */
-    public function update(Request $request, fileDoc $fileDoc)
-    {
-        //
-    }
+    public function download($id) {
 
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  \App\fileDoc  $fileDoc
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy(fileDoc $fileDoc)
-    {
-        //
+        if (!is_numeric($id)) {
+            throw new \InvalidArgumentException('id of contract is not provided', 400);
+        }
+
+        $fileQuery = Contract::findOrFail($id)->file;
+
+        $filename = $fileQuery->filename;
+        $fileType = $fileQuery->mime;
+
+        // file path
+        $filePath = storage_path("\app\contracts\\" . $id .'\\'.  $filename);
+
+        // download file
+        $headers = array('Content-Type' => $fileType);
+
+        return response()->file($filePath, $headers);
     }
 }
