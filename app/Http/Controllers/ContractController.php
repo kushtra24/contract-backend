@@ -90,6 +90,7 @@ class ContractController extends Controller
 
         $this->checkSearch($contractQuery, $search); // check for search
         $contracts = $this->executeQuery($contractQuery, $orderByArr, $orderType);
+        $this->getDataForIds($contracts);
 
         // if contracts date is null return empty array
         if (is_null($contracts)) { $contracts = []; }// set contract to an empty array
@@ -266,43 +267,25 @@ class ContractController extends Controller
         if (isset($contracts) && is_countable($contracts)) {
             foreach ($contracts as &$contract) {
 
+
                 if (!isset($contract)) { continue; }
 
                 // get data
-                $segmentLeader = Person::find($contract['segment_id']);
                 $customerName = Customer::find($contract['customer_id']);
-                $whoSubmitted = Person::find($contract['submitting_person_id']);
-                $contractType = Type::find($contract['type_id']);
-
-
-                // check if has data and get the segment leader name and firstname
-                if (isset($segmentLeader)) {
-                    $contract['segmentLeader'] = ['lastName' => $segmentLeader->lastName, 'firstName' => $segmentLeader->firstName];
-                }
 
                 // check if has data and get the customer name
                 if (isset($customerName)) {
                     $contract['customerName'] = $customerName->name;
                 }
 
-                // check if has data, and get the name of who submitted the contract
-                if (isset($whoSubmitted)) {
-                    $contract['whoSubmitted'] = ['lastName' => $whoSubmitted->lastName, 'firstName' => $whoSubmitted->firstName];
-                }
-
-                // check is has data, and get contract type name
-                if (isset($contractType)) {
-                    $contract['contractType'] = $contractType->name;
+                // check if end date is set and convert to a different format
+                if (isset($contract->end_date)) {
+                    $contract['endDateConverted'] = date('d.m.Y', strtotime($contract->end_date));
                 }
 
                 // check if end date is set and convert to a different format
-                if (is($contract->end_date)) {
-                    $contract['endDateConverted'] = date('d/m/Y', strtotime($contract->end_date));
-                }
-
-                // check if end date is set and convert to a different format
-                if (is($contract->signed_date)) {
-                    $contract['signedDateConverted'] = date('d/m/Y', strtotime($contract->signed_date));
+                if (isset($contract->signed_date)) {
+                    $contract['signedDateConverted'] = date('d.m.Y', strtotime($contract->signed_date));
                 }
 
             }
@@ -318,6 +301,7 @@ class ContractController extends Controller
      */
     public function show($id)
     {
+
         // throw error if an ID is not provided
         if (!is_numeric($id)) {
             throw new \InvalidArgumentException('The Contract ID is missing, please have a look on it',400);
