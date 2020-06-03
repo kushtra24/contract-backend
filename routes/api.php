@@ -20,6 +20,8 @@ Route::group(['as' => 'public'], function () {
     Route::post('logout', 'AuthController@logout');
     Route::post('refresh', 'AuthController@refresh');
     Route::post('me', 'AuthController@me');
+    Route::get('user', 'UserController@user');
+    Route::get('users', 'UserController@index');
 
     // contract
     Route::get('contracts', 'ContractController@index');
